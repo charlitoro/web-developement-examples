@@ -1,0 +1,22 @@
+{
+  "name": "api-node",
+  "version": "1.0.0",
+  "description": "Api Node to web development meet in San Bernardo, Nariño",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon --exec babel-node ./src/index.js"
+  },
+  "author": "Charli Toro <carlostoro04@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.19.1",
+    "cors": "^2.8.5",
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.16.5",
+    "@babel/node": "^7.16.5",
+    "@babel/preset-env": "^7.16.5",
+    "nodemon": "^2.0.15"
+  }
+}
