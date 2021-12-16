@@ -1,11 +1,17 @@
+import os
 import flask
 from flask import request, jsonify
 
-# local imports
-from src.data import books
+from flask_sqlalchemy import SQLAlchemy
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
+app.config.from_object(os.environ['APP_SETTINGS'])
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+from src.models import Book
+
 
 
 @app.route('/', methods=['GET'])
@@ -15,7 +21,11 @@ def init():
 
 @app.route('/api/books/all', methods=['GET'])
 def api_all():
-    return jsonify(books)
+    books = db.session.query(Book).filter().all()
+    result = []
+    for book in books:
+        result.append(book.serialize())
+    return jsonify(result)
 
 
 @app.route('/api/book', methods=['GET'])
@@ -31,11 +41,9 @@ def api_id():
     # Empty list for our results
     results = []
 
-    # Loop through the data and match results that fit the requested ID.
-    # IDs are unique, but other fields might return many results
+    books = db.session.query(Book).filter(Book.id==id)
     for book in books:
-        if book['id'] == id:
-            results.append(book)
+        results.append(book.serialize())
 
     # Use the jsonify function from Flask to convert our list of
     # Python dictionaries to the JSON format.
@@ -49,27 +57,46 @@ def api_update_book():
     if 'id' not in body:
         return "Error: No id field provided. Please specify an id."
     
-    title = body.get("title")
+    name = body.get("name")
     author = body.get("author")
     published = body.get("published")
 
     # Loop through the data and match results that fit the requested ID.
-    found_book = None
-    for book in books:
-        if book['id'] == body["id"]:
-            found_book = book
-            break
+    found_book = db.session.query(Book).filter(Book.id==body.get("id")).first()
     if found_book is not None:
-        if title is not None:
-            found_book["title"] = title
+        if name is not None:
+            found_book.name = name
         if author is not None:
-            found_book["author"] = author
+            found_book.author = author
         if published is not None:
-            found_book["published"] = published
+            found_book.published = published
     else:
         return "Error: Book not found"
+
+    db.session.add(found_book)
+    db.session.commit()
     # Use the jsonify function from Flask to convert our list of
     # Python dictionaries to the JSON format.
-    return jsonify(found_book)
+    return jsonify(found_book.serialize())
+
+
+@app.route('/api/create/book', methods=['POST'])
+def create_book():
+    data = request.get_json()
+
+    name = data.get("name")
+    author = data.get("author")
+    published = data.get("published")
+
+    book = Book(
+        name=name,
+        author=author,
+        published=published
+    )
+
+    db.session.add(book)
+    db.session.commit()
+
+    return jsonify(book.serialize())
 
 app.run()
