@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { books } from './data.js'
+import { pool } from './db/connection'
 
 
 const router = Router()
@@ -9,7 +9,11 @@ router.get( `/`, async ( req, res ) => {
 } )
 
 router.get( '/api/books/all', (req, res) => {
-    return res.status(200).json(books)
+    pool.query('SELECT * FROM books', (err, result) => {
+        if(err)
+            res.status(403).json(err.message)
+        res.status(200).json(result.rows)
+    })
 } )
 
 router.get('/api/book', ( req, res ) => {
@@ -32,35 +36,57 @@ router.get('/api/book', ( req, res ) => {
         if ( book.id === id )
             results.push(book)
     })
-
-    // Use the res.json function to convert our list in JSON format.
-    // use res.status to return de code status of request
-    return res.status(200).json(results)
+    pool.query('SELECT * FROM books WHERE id=$1', [id], (err, result) => {
+        if(err)
+            res.status(403).json(err.message)
+        res.status(200).json(result.rows)
+    })
 })
 
 
-router.post('/api/update/book', (req, res) => {
+router.post('/api/update/book', async (req, res) => {
     // Check if an ID was provided as part of the body.
     // If no ID is provided, display an error in the browser.
     const body = req.body
     if (!body.id)
         return res.status(403).json("Error: No id field provided. Please specify an id.")
-    const {id, title, author, published} = body
-
-    // Use find function to array type to search unique value
-    const found_book = books.find((book) => book.id === id)
-    if(found_book){
-        if(title)
-            found_book.title = title
-        if(author)
-            found_book.author = author
-        if(published)
-            found_book.published = published
-    } else 
-        return res.status(404).json("Error: book not found")
-    // Use the res.json function to convert our list in JSON format.
-    // use res.status to return de code status of request
-    return res.status(200).json(found_book)
+    const {id, name, author, published} = body
+    const found_book = await (await pool.query('SELECT * FROM books WHERE id=$1', [id])).rows[0]
+  
+    pool.query(
+        'UPDATE books SET name=$2, author=$3, published=$4 where id=$1', 
+        [id, name || found_book.name , author || found_book.author, published || found_book.published],
+        (err, result) => {
+            if (err)
+                res.status(403).json(err.message)
+            res.status(200).json({ 
+                id, 
+                name: name || found_book.name, 
+                author: author || found_book.author, 
+                published: published || found_book.published 
+            })
+        }
+    )
 })
+
+router.post('/api/create/book', async (req, res) => {
+    // Check if an ID was provided as part of the body.
+    // If no ID is provided, display an error in the browser.
+    const body = req.body
+    const {name, author, published} = body
+  
+    pool.query(
+        'INSERT INTO books (name, author, published) VALUES ($1,$2,$3)', 
+        [name, author, published],
+        (err, result) => {
+            if (err)
+                res.status(403).json(err.message)
+            pool.query('SELECT * FROM books WHERE name=$1', [name], (err, result) => {
+                res.status(200).json(result.rows[0])
+            })
+        }
+    )
+})
+
 
 export { router }
